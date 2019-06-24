@@ -1,4 +1,4 @@
-Easy ZLib module for Lua
+Easy zlib module for Lua
 ========================
 
 [lua-ezlib] provides the following API:

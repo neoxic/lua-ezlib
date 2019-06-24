@@ -4,7 +4,7 @@ source = {
 	url = 'git://github.com/neoxic/lua-ezlib.git',
 }
 description = {
-	summary = 'Easy ZLib module for Lua',
+	summary = 'Easy zlib module for Lua',
 	license = 'MIT',
 	homepage = 'https://github.com/neoxic/lua-ezlib',
 	maintainer = 'Arseny Vakhrushev <arseny.vakhrushev@gmail.com>',
