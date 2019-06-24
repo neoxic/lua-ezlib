@@ -4,14 +4,15 @@ Easy zlib module for Lua
 [lua-ezlib] provides the following API:
 
 ### ezlib.deflate(data, [gzip], [level])
-Deflates `data` into a _zlib_ (or _gzip_ if `gzip = true`) compressed chunk.
-Optional compression `level` must be between 0 and 9 (or -1 as the default).
+Deflates `data` into a _zlib_ (or _gzip_ if `gzip=true`) compressed chunk.
+Optional compression `level` must be between 0 and 9 (or -1 as zlib's default).
 
 ### ezlib.inflate(data, [gzip])
-Inflates `data` from a _zlib_ (or _gzip_ if `gzip = true`) compressed chunk.
+Inflates `data` from a _zlib_ (or _gzip_ if `gzip=true`) compressed chunk.
 
 ### ezlib.type(data)
-Returns the type of compressed `data` as `'zlib'`, `'gzip'` or `nil`.
+Returns the type of compressed `data` as a string `'zlib'` or `'gzip'`.
+If not recognized, returns `nil`.
 
 
 Building and installing with LuaRocks
