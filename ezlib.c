@@ -34,6 +34,96 @@
 
 EXPORT int luaopen_ezlib(lua_State *L);
 
+static int wbits[] = {15, 31, -15, 47};
+static const char *const dfmt[] = {"zlib", "gzip", "raw", 0};
+static const char *const ifmt[] = {"zlib", "gzip", "raw", "auto", 0};
+
+static int f_deflate(lua_State *L) {
+	const uInt max = -1;
+	void *ud, *ptr, *buf = 0;
+	size_t len, tip = 100, size = 0;
+	lua_Alloc allocf = lua_getallocf(L, &ud);
+	const char *str = luaL_checklstring(L, 1, &len);
+	int fmt = luaL_checkoption(L, 2, dfmt[0], dfmt);
+	int lvl = luaL_optinteger(L, 3, 6);
+	int err;
+	z_stream zs;
+	zs.next_in = (Bytef *)str;
+	zs.avail_in = 0;
+	zs.avail_out = 0;
+	zs.zalloc = 0;
+	zs.zfree = 0;
+	zs.opaque = 0;
+	luaL_argcheck(L, lvl >= 0 && lvl <= 9, 3, "value out of range");
+	if ((err = deflateInit2(&zs, lvl, Z_DEFLATED, wbits[fmt], 8, 0))) goto error;
+	do {
+		if (!zs.avail_in) {
+			zs.avail_in = len > max ? max : len;
+			len -= zs.avail_in;
+		}
+		if (!zs.avail_out) {
+			zs.avail_out = tip > max ? max : tip;
+			ptr = allocf(ud, buf, size, size + zs.avail_out);
+			if (!ptr) {
+				err = Z_MEM_ERROR;
+				break;
+			}
+			zs.next_out = (Bytef *)ptr + zs.total_out;
+			buf = ptr;
+			tip <<= 1;
+			size += zs.avail_out;
+		}
+	} while (!(err = deflate(&zs, len ? 0 : Z_FINISH)));
+	deflateEnd(&zs);
+	if (err == Z_STREAM_END) lua_pushlstring(L, buf, zs.total_out);
+	allocf(ud, buf, size, 0);
+	if (err == Z_STREAM_END) return 1;
+error:
+	return luaL_error(L, "%s", zError(err));
+}
+
+static int f_inflate(lua_State *L) {
+	const uInt max = -1;
+	void *ud, *ptr, *buf = 0;
+	size_t len, tip = 100, size = 0;
+	lua_Alloc allocf = lua_getallocf(L, &ud);
+	const char *str = luaL_checklstring(L, 1, &len);
+	int fmt = luaL_checkoption(L, 2, ifmt[0], ifmt);
+	int err;
+	z_stream zs;
+	zs.next_in = (Bytef *)str;
+	zs.avail_in = 0;
+	zs.avail_out = 0;
+	zs.zalloc = 0;
+	zs.zfree = 0;
+	zs.opaque = 0;
+	if ((err = inflateInit2(&zs, wbits[fmt]))) goto error;
+	do {
+		if (!zs.avail_in) {
+			zs.avail_in = len > max ? max : len;
+			len -= zs.avail_in;
+		}
+		if (!zs.avail_out) {
+			zs.avail_out = tip > max ? max : tip;
+			ptr = allocf(ud, buf, size, size + zs.avail_out);
+			if (!ptr) {
+				err = Z_MEM_ERROR;
+				break;
+			}
+			zs.next_out = (Bytef *)ptr + zs.total_out;
+			buf = ptr;
+			tip <<= 1;
+			size += zs.avail_out;
+		}
+	} while (!(err = inflate(&zs, 0)));
+	inflateEnd(&zs);
+	if (err == Z_STREAM_END) lua_pushlstring(L, buf, zs.total_out);
+	allocf(ud, buf, size, 0);
+	if (err == Z_STREAM_END) return 1;
+error:
+	return luaL_error(L, "%s", zError(err));
+}
+
 static int f_type(lua_State *L) {
 	size_t len;
 	const char *str = luaL_checklstring(L, 1, &len);
@@ -53,90 +143,26 @@ static int f_type(lua_State *L) {
 	return 1;
 }
 
-static int f_deflate(lua_State *L) {
-	const uInt max = -1;
-	size_t len, tip = 100, old = 0;
-	void *ud, *ptr, *buf = 0;
-	lua_Alloc allocf = lua_getallocf(L, &ud);
-	int err;
-	z_stream zs;
-	zs.next_in = (Bytef *)luaL_checklstring(L, 1, &len);
-	zs.avail_in = 0;
-	zs.avail_out = 0;
-	zs.zalloc = 0;
-	zs.zfree = 0;
-	zs.opaque = 0;
-	if ((err = deflateInit2(&zs, luaL_optinteger(L, 3, -1), Z_DEFLATED, lua_toboolean(L, 2) ? 31 : 15, 8, 0))) goto error;
-	do {
-		if (!zs.avail_in) {
-			zs.avail_in = len > max ? max : len;
-			len -= zs.avail_in;
-		}
-		if (!zs.avail_out) {
-			zs.avail_out = tip > max ? max : tip;
-			ptr = allocf(ud, buf, old, old + zs.avail_out);
-			if (!ptr) {
-				err = Z_MEM_ERROR;
-				break;
-			}
-			zs.next_out = (Bytef *)ptr + zs.total_out;
-			buf = ptr;
-			tip <<= 1;
-			old += zs.avail_out;
-		}
-	} while (!(err = deflate(&zs, len ? 0 : Z_FINISH)));
-	deflateEnd(&zs);
-	if (err == Z_STREAM_END) lua_pushlstring(L, buf, zs.total_out);
-	allocf(ud, buf, old, 0);
-	if (err == Z_STREAM_END) return 1;
-error:
-	return luaL_error(L, "%s", zError(err));
+static int f_crc32(lua_State *L) {
+	size_t len;
+	const char *str = luaL_checklstring(L, 1, &len);
+	lua_pushinteger(L, crc32_z(crc32(0, 0, 0), (Bytef *)str, len));
+	return 1;
 }
 
-static int f_inflate(lua_State *L) {
-	const uInt max = -1;
-	size_t len, tip = 100, old = 0;
-	void *ud, *ptr, *buf = 0;
-	lua_Alloc allocf = lua_getallocf(L, &ud);
-	int err;
-	z_stream zs;
-	zs.next_in = (Bytef *)luaL_checklstring(L, 1, &len);
-	zs.avail_in = 0;
-	zs.avail_out = 0;
-	zs.zalloc = 0;
-	zs.zfree = 0;
-	zs.opaque = 0;
-	if ((err = inflateInit2(&zs, lua_toboolean(L, 2) ? 31 : 15))) goto error;
-	do {
-		if (!zs.avail_in) {
-			zs.avail_in = len > max ? max : len;
-			len -= zs.avail_in;
-		}
-		if (!zs.avail_out) {
-			zs.avail_out = tip > max ? max : tip;
-			ptr = allocf(ud, buf, old, old + zs.avail_out);
-			if (!ptr) {
-				err = Z_MEM_ERROR;
-				break;
-			}
-			zs.next_out = (Bytef *)ptr + zs.total_out;
-			buf = ptr;
-			tip <<= 1;
-			old += zs.avail_out;
-		}
-	} while (!(err = inflate(&zs, 0)));
-	inflateEnd(&zs);
-	if (err == Z_STREAM_END) lua_pushlstring(L, buf, zs.total_out);
-	allocf(ud, buf, old, 0);
-	if (err == Z_STREAM_END) return 1;
-error:
-	return luaL_error(L, "%s", zError(err));
+static int f_adler32(lua_State *L) {
+	size_t len;
+	const char *str = luaL_checklstring(L, 1, &len);
+	lua_pushinteger(L, adler32_z(adler32(0, 0, 0), (Bytef *)str, len));
+	return 1;
 }
 
 static const luaL_Reg l_ezlib[] = {
-	{"type", f_type},
 	{"deflate", f_deflate},
 	{"inflate", f_inflate},
+	{"type", f_type},
+	{"crc32", f_crc32},
+	{"adler32", f_adler32},
 	{0, 0}
 };
 
