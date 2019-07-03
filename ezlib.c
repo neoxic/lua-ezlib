@@ -20,8 +20,8 @@
 ** THE SOFTWARE.
 */
 
-#include <zlib.h>
 #include <lauxlib.h>
+#include <zlib.h>
 
 #define MODNAME "lua-ezlib"
 #define VERSION "0.2.0"
