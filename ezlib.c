@@ -34,6 +34,11 @@
 
 EXPORT int luaopen_ezlib(lua_State *L);
 
+#if ZLIB_VERNUM < 0x1290
+#define crc32_z crc32
+#define adler32_z adler32
+#endif
+
 static int wbits[] = {15, 31, -15, 47};
 static const char *const dfmt[] = {"zlib", "gzip", "raw", 0};
 static const char *const ifmt[] = {"zlib", "gzip", "raw", "auto", 0};
