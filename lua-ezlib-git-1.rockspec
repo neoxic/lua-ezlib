@@ -7,7 +7,7 @@ description = {
 	summary = 'Easy zlib module for Lua',
 	license = 'MIT',
 	homepage = 'https://github.com/neoxic/lua-ezlib',
-	maintainer = 'Arseny Vakhrushev <arseny.vakhrushev@gmail.com>',
+	maintainer = 'Arseny Vakhrushev <arseny.vakhrushev@me.com>',
 }
 dependencies = {
 	'lua >= 5.1',
