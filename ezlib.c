@@ -173,7 +173,7 @@ static const luaL_Reg l_ezlib[] = {
 
 int luaopen_ezlib(lua_State *L) {
 #if LUA_VERSION_NUM < 502
-	luaL_register(L, lua_tostring(L, 1), l_ezlib);
+	luaL_register(L, "ezlib", l_ezlib);
 #else
 	luaL_newlib(L, l_ezlib);
 #endif
